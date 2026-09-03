@@ -452,37 +452,19 @@
        + Razorpay (real payment)
     ===================================================== */
 
-    // ================= CONFIG — YAHAN APNI KEYS BHAREN =================
+    // ================= CONFIG — FIREBASE KEYS (✅ भर दी गई हैं) =================
     const FIREBASE_CONFIG = {
-      apiKey: "// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCJZSJxHRXWEcpe4ZOWf-0UR9aeJvaFKlI",
-  authDomain: "tokribazaar-7e851.firebaseapp.com",
-  projectId: "tokribazaar-7e851",
-  storageBucket: "tokribazaar-7e851.firebasestorage.app",
-  messagingSenderId: "158009318257",
-  appId: "1:158009318257:web:0b20bfe4c62a9246cf34d0",
-  measurementId: "G-SC7SJMPXQR"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyCJZSJxHRXWEcpe4ZOWf-0UR9aeJvaFKlI",
+      authDomain: "tokribazaar-7e851.firebaseapp.com",
+      projectId: "tokribazaar-7e851",
+      storageBucket: "tokribazaar-7e851.firebasestorage.app",
+      messagingSenderId: "158009318257",
+      appId: "1:158009318257:web:0b20bfe4c62a9246cf34d0"
     };
-    const RAZORPAY_KEY_ID = "rzp_test_YOUR_KEY";   // test mode key
-    const BACKEND_URL = "https://your-backend.onrender.com"; // server.js ka URL
+
+    // ================= RAZORPAY — YAHAN ABHI BHI BHARNA HAI (Payment ke liye) =================
+    const RAZORPAY_KEY_ID = "rzp_test_YOUR_KEY";        // Razorpay Dashboard → Settings → API Keys → Key Id
+    const BACKEND_URL = "https://your-backend.onrender.com"; // backend/server.js ka live URL (Render/Railway)
     // ===================================================================
 
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -708,8 +690,9 @@ const analytics = getAnalytics(app);",
 
         if (pendingSignup) {
           // ---- New user: create Firestore doc ----
+          const newUserName = pendingSignup.name;
           db.collection("users").doc(user.uid).set({
-            name: pendingSignup.name,
+            name: newUserName,
             phone: pendingSignup.mobile,
             email: pendingSignup.email || "",
             address: "",
@@ -717,7 +700,7 @@ const analytics = getAnalytics(app);",
           }).then(() => {
             pendingSignup = null;
             toggleModal("authModal", false);
-            showToast("🎉 अकाउंट बन गया! Welcome, " + user.displayName || pendingSignup?.name || "User", "success");
+            showToast("🎉 अकाउंट बन गया! Welcome, " + newUserName + "!", "success");
             afterAuthSuccess();
           });
         } else {
@@ -1073,5 +1056,5 @@ const analytics = getAnalytics(app);",
       renderCart();
     };
   </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a35615196bbb564c',t:'MTc4ODQ1MjQzMg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3562bfee8f79788',t:'MTc4ODQ1MzM3MA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
