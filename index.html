@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TokriBazaar - आपकी अपनी ऑनलाइन दुकान</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f4f6f9; color: #333; }
+    
+    /* Header & Nav */
+    header { background: #1e293b; color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 24px; color: #38bdf8; }
+    nav button { background: #0ea5e9; border: none; padding: 8px 16px; color: white; border-radius: 4px; cursor: pointer; margin-left: 8px; font-weight: bold; }
+    nav button:hover { background: #0284c7; }
+
+    .container { max-width: 1100px; margin: 25px auto; padding: 0 15px; }
+
+    /* Auth Box */
+    .auth-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto 30px; }
+    .auth-card h3 { margin-bottom: 15px; text-align: center; }
+    .auth-card input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    .auth-card button { width: 100%; padding: 10px; background: #10b981; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .auth-card button:hover { background: #059669; }
+
+    /* Products Grid */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+    .product-card { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+    .product-card img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; }
+    .product-card h4 { font-size: 18px; margin-bottom: 8px; }
+    .price { font-size: 16px; font-weight: bold; color: #e11d48; margin-bottom: 12px; }
+    
+    /* Shopping Buttons */
+    .btn-group { display: flex; gap: 8px; }
+    .btn-cart { flex: 1; background: #f59e0b; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn-buy { flex: 1; background: #ef4444; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn-cart:hover { background: #d97706; }
+    .btn-buy:hover { background: #dc2626; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🛒 TokriBazaar</h1>
+    <nav>
+      <span id="userGreeting" style="margin-right: 10px; font-size: 14px;"></span>
+      <button onclick="toggleCart()">Cart (<span id="cartCount">0</span>)</button>
+      <button id="logoutBtn" style="display:none; background:#64748b;" onclick="logout()">Logout</button>
+    </nav>
+  </header>
+
+  <div class="container">
+    <!-- User Registration & Login Section -->
+    <div class="auth-card" id="authBox">
+      <h3 id="authTitle">रजिस्टर करें या लॉगिन करें</h3>
+      <input type="text" id="username" placeholder="यूज़रनेम दर्ज करें">
+      <input type="password" id="password" placeholder="पासवर्ड दर्ज करें">
+      <button onclick="saveUser()">खाता बनाएं / Save Details</button>
+    </div>
+
+    <!-- Product Showcase -->
+    <h2 style="margin-bottom: 15px;">ताज़ा प्रोडक्ट्स</h2>
+    <div class="product-grid">
+      
+      <div class="product-card">
+        <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400" alt="Shoes">
+        <h4>Sports Shoes</h4>
+        <div class="price">₹1,499</div>
+        <div class="btn-group">
+          <button class="btn-cart" onclick="addToCart('Sports Shoes')">Add to Cart</button>
+          <button class="btn-buy" onclick="buyNow('Sports Shoes')">Buy Now</button>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400" alt="Watch">
+        <h4>Smart Watch</h4>
+        <div class="price">₹2,199</div>
+        <div class="btn-group">
+          <button class="btn-cart" onclick="addToCart('Smart Watch')">Add to Cart</button>
+          <button class="btn-buy" onclick="buyNow('Smart Watch')">Buy Now</button>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400" alt="Headphones">
+        <h4>Wireless Headphones</h4>
+        <div class="price">₹999</div>
+        <div class="btn-group">
+          <button class="btn-cart" onclick="addToCart('Wireless Headphones')">Add to Cart</button>
+          <button class="btn-buy" onclick="buyNow('Wireless Headphones')">Buy Now</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let cart = [];
+
+    // Check if user is already logged in
+    window.onload = function() {
+      const activeUser = localStorage.getItem("tokriUser");
+      if (activeUser) {
+        showLoggedIn(activeUser);
+      }
+    };
+
+    function saveUser() {
+      const u = document.getElementById("username").value.trim();
+      const p = document.getElementById("password").value.trim();
+
+      if (!u || !p) {
+        alert("कृपया यूज़रनेम और पासवर्ड दोनों दर्ज करें!");
+        return;
+      }
+
+      // Save credentials in browser LocalStorage
+      let users = JSON.parse(localStorage.getItem("tokriBazaarUsers") || "{}");
+      users[u] = p;
+      localStorage.setItem("tokriBazaarUsers", JSON.stringify(users));
+      localStorage.setItem("tokriUser", u);
+
+      alert("सफलतापूर्वक रजिस्टर हो गया!");
+      showLoggedIn(u);
+    }
+
+    function showLoggedIn(username) {
+      document.getElementById("authBox").style.display = "none";
+      document.getElementById("userGreeting").innerText = "नमस्ते, " + username;
+      document.getElementById("logoutBtn").style.display = "inline-block";
+    }
+
+    function logout() {
+      localStorage.removeItem("tokriUser");
+      location.reload();
+    }
+
+    function addToCart(item) {
+      cart.push(item);
+      document.getElementById("cartCount").innerText = cart.length;
+      alert(item + " कार्ट में जोड़ दिया गया है!");
+    }
+
+    function buyNow(item) {
+      const activeUser = localStorage.getItem("tokriUser");
+      if (!activeUser) {
+        alert("ऑर्डर करने के लिए पहले लॉगिन करें!");
+        return;
+      }
+      alert("ऑर्डर प्रोसेस हो रहा है: " + item + "\nग्राहक: " + activeUser);
+    }
+
+    function toggleCart() {
+      if (cart.length === 0) {
+        alert("आपकी टोकरी खाली है!");
+      } else {
+        alert("आपकी टोकरी में है:\n- " + cart.join("\n- "));
+      }
+    }
+  </script>
+</body>
+</html>
