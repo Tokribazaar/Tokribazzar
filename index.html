@@ -3,9 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TokriBazaar - भारत की अपनी ऑनलाइन दुकान</title>
-  <!-- QR code library (UPI QR के लिए). Load न हो तो UPI ID + Copy button fallback दिखेगा -->
-  <script async src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <title>TokriBazaar - भारत की अपनी ऑनलाइन दुकान (Live)</title>
+
+  <!-- Firebase SDKs (real OTP + real database) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <!-- Razorpay Checkout (real payment) -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
   <style>
     :root {
       --primary: #2874f0;
@@ -22,27 +29,21 @@
       --shadow: 0 2px 8px rgba(0,0,0,0.12);
       --radius: 4px;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background-color: var(--gray-bg); color: var(--dark); padding-bottom: 0; }
+    body { background-color: var(--gray-bg); color: var(--dark); }
     button { font-family: inherit; }
     a { color: var(--primary); text-decoration: none; }
 
-    /* ============ HEADER ============ */
     header { background: var(--primary); color: white; padding: 11px 20px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
     .nav-wrap { max-width: 1240px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
     .logo { font-size: 22px; font-weight: 900; color: #ffe500; text-decoration: none; font-style: italic; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
     .logo span { font-size: 10px; color: white; font-style: normal; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 2px; }
-
     .search-box { flex: 1; max-width: 560px; display: flex; background: white; border-radius: 3px; overflow: hidden; }
     .search-box input { width: 100%; padding: 10px 14px; border: none; outline: none; font-size: 14px; }
     .search-box button { background: white; border: none; padding: 0 16px; cursor: pointer; color: var(--primary); font-weight: bold; }
-
     .nav-btns { display: flex; align-items: center; gap: 22px; }
     .login-btn { background: white; color: var(--primary); font-weight: 700; border: none; padding: 7px 22px; border-radius: 2px; cursor: pointer; font-size: 14px; }
-    .login-btn:hover { background: #f5f8ff; }
 
-    /* User dropdown menu */
     .user-menu { position: relative; }
     .user-menu .trigger { background: none; border: none; color: white; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; padding: 6px 4px; }
     .user-menu .trigger .caret { font-size: 10px; transition: transform .2s; }
@@ -61,25 +62,20 @@
     .cart-btn { background: transparent; border: none; color: white; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 7px; cursor: pointer; position: relative; padding: 6px 4px; }
     .cart-count { background: var(--secondary); color: white; font-size: 11px; border-radius: 10px; padding: 2px 7px; font-weight: 800; }
 
-    /* ============ CATEGORY BAR ============ */
     .cat-bar { background: white; border-bottom: 1px solid var(--border); padding: 10px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); position: sticky; top: 57px; z-index: 900; }
     .cat-container { max-width: 1240px; margin: 0 auto; display: flex; gap: 12px; overflow-x: auto; }
     .cat-chip { padding: 6px 16px; background: var(--gray-bg); border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; white-space: nowrap; transition: all .15s; }
     .cat-chip.active, .cat-chip:hover { background: #e8f0fe; color: var(--primary); border-color: var(--primary); }
 
-    /* ============ HERO STRIP ============ */
     .hero { max-width: 1240px; margin: 16px auto 0; padding: 0 15px; }
     .hero-banner { background: linear-gradient(120deg, #1a5cc8 0%, #2874f0 45%, #4a8df8 100%); border-radius: 8px; padding: 26px 30px; color: white; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; box-shadow: var(--shadow); }
     .hero-banner h2 { font-size: 24px; font-weight: 900; }
     .hero-banner p { font-size: 14px; opacity: .9; margin-top: 5px; }
-    .hero-badge { background: var(--accent); color: #3b2c00; font-weight: 800; padding: 8px 16px; border-radius: 30px; font-size: 14px; animation: pulse 1.6s infinite; }
-    @keyframes pulse { 0%,100% { transform: scale(1);} 50% { transform: scale(1.05);} }
+    .hero-badge { background: var(--accent); color: #3b2c00; font-weight: 800; padding: 8px 16px; border-radius: 30px; font-size: 14px; }
 
-    /* ============ MAIN ============ */
     .container { max-width: 1240px; margin: 18px auto; padding: 0 15px; }
     .sec-title { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
     .sec-title h3 { font-size: 18px; font-weight: 800; }
-
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
     .prod-card { background: white; border-radius: 6px; border: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; justify-content: space-between; position: relative; transition: box-shadow .2s, transform .2s; }
     .prod-card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.13); transform: translateY(-3px); }
@@ -91,15 +87,13 @@
     .prices { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
     .curr-price { font-size: 18px; font-weight: 800; }
     .cut-price { color: var(--muted); text-decoration: line-through; font-size: 13px; }
-    .off-pct { color: var(--success); font-size: 12px; font-weight: 700; }
     .card-actions { display: flex; gap: 8px; }
-    .btn-cart { flex: 1; background: var(--accent); color: white; border: none; padding: 10px; font-weight: 700; font-size: 12px; border-radius: 3px; cursor: pointer; transition: filter .15s; }
+    .btn-cart { flex: 1; background: var(--accent); color: white; border: none; padding: 10px; font-weight: 700; font-size: 12px; border-radius: 3px; cursor: pointer; }
     .btn-cart:hover { filter: brightness(1.06); }
-    .btn-buy { flex: 1; background: var(--secondary); color: white; border: none; padding: 10px; font-weight: 700; font-size: 12px; border-radius: 3px; cursor: pointer; transition: filter .15s; }
+    .btn-buy { flex: 1; background: var(--secondary); color: white; border: none; padding: 10px; font-weight: 700; font-size: 12px; border-radius: 3px; cursor: pointer; }
     .btn-buy:hover { filter: brightness(1.06); }
     .empty-state { text-align: center; color: var(--muted); padding: 50px 20px; grid-column: 1 / -1; font-size: 15px; }
 
-    /* ============ FOOTER ============ */
     footer { background: #172337; color: #b7c3d0; margin-top: 40px; padding: 35px 20px 25px; font-size: 13px; }
     .foot-wrap { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 25px; }
     footer h5 { color: #878787; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
@@ -110,7 +104,6 @@
     .foot-bottom { max-width: 1240px; margin: 25px auto 0; padding-top: 18px; border-top: 1px solid #2c3e50; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12px; color: #8b98a6; }
     .foot-bottom a { display: inline; color: #b7c3d0; }
 
-    /* ============ CART TOAST (dropdown message) ============ */
     .cart-toast { position: fixed; top: 66px; left: 50%; transform: translate(-50%, -130px); z-index: 4000; transition: transform .35s cubic-bezier(.2,.9,.3,1.1); }
     .cart-toast.show { transform: translate(-50%, 0); }
     .cart-toast-inner { background: white; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 13px 18px; display: flex; align-items: center; gap: 13px; min-width: 330px; max-width: 480px; border-left: 4px solid var(--success); }
@@ -119,9 +112,7 @@
     .ct-t1 { font-size: 14px; font-weight: 800; color: var(--success); }
     .ct-t2 { font-size: 12px; color: #555; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ct-btn { margin-left: auto; background: var(--primary); color: white; border: none; padding: 8px 14px; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
-    .ct-btn:hover { background: var(--primary-dark); }
 
-    /* ============ GENERAL TOAST ============ */
     .toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 5000; display: flex; flex-direction: column; gap: 10px; align-items: center; }
     .toast { background: #323232; color: white; padding: 12px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0,0,0,0.25); animation: toastIn .3s ease; max-width: 90vw; }
     .toast.success { background: var(--success); }
@@ -129,7 +120,6 @@
     .toast.info { background: var(--primary); }
     @keyframes toastIn { from { opacity: 0; transform: translateY(14px);} to { opacity:1; transform: translateY(0);} }
 
-    /* ============ CART DRAWER ============ */
     .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; }
     .cart-drawer { position: fixed; top: 0; right: -460px; width: 100%; max-width: 430px; height: 100%; background: white; z-index: 2001; transition: right 0.3s ease; display: flex; flex-direction: column; box-shadow: -6px 0 24px rgba(0,0,0,0.2); }
     .cart-drawer.open { right: 0; }
@@ -145,13 +135,12 @@
     .qty-val { padding: 0 9px; font-size: 13px; font-weight: 600; min-width: 22px; text-align: center; }
     .btn-del { color: var(--danger); background: none; border: none; font-size: 11px; cursor: pointer; margin-left: 10px; font-weight: bold; }
     .drawer-footer { padding: 15px; background: #fafafa; border-top: 1px solid var(--border); }
-    .drawer-checkout { width: 100%; background: var(--secondary); color: white; border: none; padding: 12px; font-weight: 800; font-size: 15px; border-radius: 3px; cursor: pointer; transition: filter .15s; }
+    .drawer-checkout { width: 100%; background: var(--secondary); color: white; border: none; padding: 12px; font-weight: 800; font-size: 15px; border-radius: 3px; cursor: pointer; }
     .drawer-checkout:hover { filter: brightness(1.06); }
     .drawer-checkout.blue { background: var(--primary); }
     .drawer-checkout.green { background: var(--success); }
     .drawer-checkout.gray { background: #e0e0e0; color: #333; }
 
-    /* ============ MODALS ============ */
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 3000; display: none; justify-content: center; align-items: center; padding: 15px; }
     .modal.open { display: flex; }
     .modal-content { background: white; border-radius: 6px; max-width: 680px; width: 100%; max-height: 92vh; overflow-y: auto; padding: 26px; position: relative; animation: modalIn .25s ease; }
@@ -159,12 +148,10 @@
     .close-modal { position: absolute; top: 14px; right: 14px; font-size: 20px; background: #f0f0f0; border: none; cursor: pointer; color: #555; width: 32px; height: 32px; border-radius: 50%; }
     .close-modal:hover { background: #e0e0e0; }
 
-    /* Auth tabs */
     .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; }
     .auth-tab { flex: 1; text-align: center; padding: 12px; font-weight: 700; font-size: 14px; color: #999; cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; }
     .auth-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-    /* Steps indicator */
     .steps-indicator { display: flex; justify-content: space-between; border-bottom: 2px solid #f0f0f0; margin-bottom: 20px; padding-bottom: 12px; }
     .step-node { font-size: 13px; font-weight: 700; color: #aaa; display: flex; align-items: center; gap: 7px; }
     .step-node .num { width: 22px; height: 22px; border-radius: 50%; background: #ddd; color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
@@ -173,7 +160,6 @@
     .step-node.done { color: var(--success); }
     .step-node.done .num { background: var(--success); }
 
-    /* Forms */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .full-w { grid-column: span 2; }
     .input-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: #555; }
@@ -182,37 +168,25 @@
     .input-group .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
     .err-msg { color: var(--danger); font-size: 12px; font-weight: 600; margin: 6px 0 0; display: none; }
 
-    /* OTP boxes */
     .otp-row { display: flex; gap: 8px; justify-content: center; margin: 18px 0; }
     .otp-box { width: 44px; height: 50px; text-align: center; font-size: 20px; font-weight: 800; border: 1.5px solid #ccc; border-radius: 6px; outline: none; }
     .otp-box:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(40,116,240,.15); }
-    .otp-demo { background: #fff8e1; border: 1px dashed #f0c36d; color: #7a5b00; border-radius: 6px; padding: 10px 14px; font-size: 13px; text-align: center; margin: 10px 0; }
-    .otp-demo b { letter-spacing: 3px; font-size: 15px; }
     .otp-timer { text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
 
-    /* Bill box */
     .bill-box { background: #f9fafb; border: 1px solid var(--border); border-radius: 5px; padding: 15px; margin: 15px 0; }
     .bill-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
     .bill-item.total-final { font-size: 16px; font-weight: 800; border-top: 1px dashed #ccc; padding-top: 10px; margin-top: 10px; color: var(--dark); }
 
-    /* Payment options */
     .pay-methods { display: flex; flex-direction: column; gap: 10px; margin: 15px 0; }
     .pay-option { border: 1px solid var(--border); border-radius: 5px; padding: 13px; display: flex; align-items: center; gap: 13px; cursor: pointer; transition: all .15s; }
     .pay-option:hover { border-color: var(--primary); background: #f8fbff; }
     .pay-option.selected { border-color: var(--primary); background: #f1f6ff; box-shadow: 0 0 0 1px var(--primary); }
     .pay-option input { accent-color: var(--primary); width: 17px; height: 17px; }
-    .pay-sub { background: #f9fafb; border: 1px solid var(--border); border-radius: 5px; padding: 16px; margin: -4px 0 15px; display: none; }
-    .upi-qr-wrap { text-align: center; margin: 10px 0; }
-    .upi-qr-wrap img { width: 170px; height: 170px; border: 1px solid var(--border); padding: 8px; border-radius: 6px; background: white; }
-    .upi-id-pill { display: inline-flex; align-items: center; gap: 8px; background: #f1f6ff; color: var(--primary); border: 1px solid #cfe0ff; padding: 7px 14px; border-radius: 30px; font-weight: 700; font-size: 13px; margin-top: 8px; }
-    .upi-id-pill button { border: none; background: var(--primary); color: white; padding: 4px 10px; border-radius: 20px; cursor: pointer; font-size: 11px; font-weight: 700; }
 
-    /* Success screen */
     .order-success-screen { text-align: center; padding: 15px 10px; }
     .success-icon { width: 70px; height: 70px; background: var(--success-bg); color: var(--success); font-size: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px; animation: popIn .4s ease; }
     .invoice-card { text-align: left; background: #f9f9f9; border: 1px solid var(--border); padding: 16px; border-radius: 5px; margin: 15px 0; font-size: 13px; line-height: 1.7; }
 
-    /* Orders list */
     .order-card { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 14px; overflow: hidden; }
     .order-head { background: #f5f7fa; padding: 12px 16px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 12px; }
     .order-body { padding: 12px 16px; font-size: 13px; }
@@ -220,17 +194,14 @@
     .order-item img { width: 40px; height: 40px; object-fit: contain; border: 1px solid var(--border); border-radius: 4px; }
     .status-badge { background: var(--success-bg); color: var(--success); font-weight: 800; font-size: 11px; padding: 3px 10px; border-radius: 20px; }
 
-    /* Processing overlay */
     .processing-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 6000; display: none; justify-content: center; align-items: center; flex-direction: column; color: white; }
     .processing-overlay.open { display: flex; }
     .spinner { width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.25); border-top-color: #fff; border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 18px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .processing-overlay p { font-size: 15px; font-weight: 700; }
     .processing-overlay span { font-size: 12px; opacity: .8; margin-top: 6px; }
-
     .secure-note { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 12px; justify-content: center; }
 
-    /* Responsive */
     @media (max-width: 700px) {
       .nav-wrap { flex-wrap: wrap; gap: 10px; }
       .search-box { order: 3; flex-basis: 100%; max-width: none; }
@@ -245,7 +216,6 @@
 </head>
 <body>
 
-  <!-- ============ TOP HEADER ============ -->
   <header>
     <div class="nav-wrap">
       <a href="#" class="logo" onclick="location.reload()">TokriBazaar <span>Plus</span></a>
@@ -257,14 +227,11 @@
         <span id="userSection">
           <button class="login-btn" onclick="openAuth('login')">Login</button>
         </span>
-        <button class="cart-btn" onclick="toggleDrawer(true)">
-          🛒 Cart <span class="cart-count" id="cartCount">0</span>
-        </button>
+        <button class="cart-btn" onclick="toggleDrawer(true)">🛒 Cart <span class="cart-count" id="cartCount">0</span></button>
       </div>
     </div>
   </header>
 
-  <!-- ============ CATEGORIES ============ -->
   <div class="cat-bar">
     <div class="cat-container">
       <div class="cat-chip active" onclick="filterCat('All', this)">All Categories</div>
@@ -275,81 +242,41 @@
     </div>
   </div>
 
-  <!-- ============ HERO ============ -->
   <div class="hero">
     <div class="hero-banner">
-      <div>
-        <h2>🛍️ टोकरी भरो, बचत करो!</h2>
-        <p>आज ही सभी ऑर्डर पर FREE डिलीवरी + GST बिल के साथ।</p>
-      </div>
+      <div><h2>🛍️ टोकरी भरो, बचत करो!</h2><p>आज ही सभी ऑर्डर पर FREE डिलीवरी + GST बिल के साथ।</p></div>
       <div class="hero-badge">🔥 MEGA SALE LIVE</div>
     </div>
   </div>
 
-  <!-- ============ PRODUCT GRID ============ -->
   <div class="container">
-    <div class="sec-title">
-      <h3>🔥 सुपर डील्स और डिस्काउंट्स</h3>
-    </div>
+    <div class="sec-title"><h3>🔥 सुपर डील्स और डिस्काउंट्स</h3></div>
     <div class="grid" id="productGrid"></div>
   </div>
 
-  <!-- ============ FOOTER ============ -->
   <footer>
     <div class="foot-wrap">
-      <div>
-        <h5>ABOUT</h5>
-        <p style="line-height:1.7;">TokriBazaar भारत की अपनी ऑनलाइन दुकान है। हम बेहतरीन क्वालिटी के प्रोडक्ट्स को सबसे किफायती दामों पर आपके दरवाजे तक पहुंचाते हैं।</p>
-      </div>
-      <div>
-        <h5>HELP</h5>
-        <a>Payments</a>
-        <a>Shipping</a>
-        <a>Cancellation &amp; Returns</a>
-        <a>FAQ</a>
-      </div>
-      <div>
-        <h5>POLICY</h5>
-        <a>Return Policy</a>
-        <a>Terms Of Use</a>
-        <a>Security</a>
-        <a>Privacy</a>
-      </div>
-      <div>
-        <h5>WE ACCEPT</h5>
-        <div class="pay-badges">
-          <span class="pay-badge">UPI</span>
-          <span class="pay-badge">VISA</span>
-          <span class="pay-badge">MasterCard</span>
-          <span class="pay-badge">RuPay</span>
-          <span class="pay-badge">COD</span>
-        </div>
-        <p style="margin-top:12px; font-size:12px; color:#8b98a6;">🔒 100% Secure Payments</p>
+      <div><h5>ABOUT</h5><p style="line-height:1.7;">TokriBazaar भारत की अपनी ऑनलाइन दुकान है। बेहतरीन क्वालिटी, किफायती दाम।</p></div>
+      <div><h5>HELP</h5><a>Payments</a><a>Shipping</a><a>Returns</a><a>FAQ</a></div>
+      <div><h5>POLICY</h5><a>Return Policy</a><a>Terms</a><a>Security</a><a>Privacy</a></div>
+      <div><h5>WE ACCEPT</h5>
+        <div class="pay-badges"><span class="pay-badge">UPI</span><span class="pay-badge">VISA</span><span class="pay-badge">MasterCard</span><span class="pay-badge">RuPay</span><span class="pay-badge">COD</span></div>
+        <p style="margin-top:12px; font-size:12px; color:#8b98a6;">🔒 Razorpay Secure Payments</p>
       </div>
     </div>
-    <div class="foot-bottom">
-      <span>© 2026 TokriBazaar. All rights reserved.</span>
-      <span><a onclick="exportData()">📥 User Data Export (Admin)</a> &nbsp;•&nbsp; <a onclick="openAboutStorage()">Data Storage Info</a></span>
-    </div>
+    <div class="foot-bottom"><span>© 2026 TokriBazaar. All rights reserved.</span><span>Powered by Firebase + Razorpay</span></div>
   </footer>
 
-  <!-- ============ CART TOAST (dropdown) ============ -->
   <div class="cart-toast" id="cartToast">
     <div class="cart-toast-inner">
       <span class="tick">✓</span>
       <img id="cartToastImg" src="" alt="">
-      <div>
-        <div class="ct-t1">Added to Cart!</div>
-        <div class="ct-t2" id="cartToastName"></div>
-      </div>
+      <div><div class="ct-t1">Added to Cart!</div><div class="ct-t2" id="cartToastName"></div></div>
       <button class="ct-btn" onclick="viewCartFromToast()">VIEW CART</button>
     </div>
   </div>
-
-  <!-- General toast container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <!-- ============ CART DRAWER (manual) ============ -->
   <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer(false)"></div>
   <div class="cart-drawer" id="cartDrawer">
     <div class="drawer-header">
@@ -359,75 +286,46 @@
     <div class="cart-scroll" id="cartRows"></div>
     <div class="drawer-footer">
       <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-weight:700;">
-        <span>Subtotal:</span>
-        <span id="drawerSubtotal">₹0</span>
+        <span>Subtotal:</span><span id="drawerSubtotal">₹0</span>
       </div>
       <button class="drawer-checkout" onclick="startCheckout()">PROCEED TO CHECKOUT ➔</button>
     </div>
   </div>
 
-  <!-- ============ LOGIN / SIGNUP / OTP MODAL ============ -->
+  <!-- AUTH MODAL (OTP-based login/signup) -->
   <div class="modal" id="authModal">
     <div class="modal-content" style="max-width:400px;">
       <button class="close-modal" onclick="toggleModal('authModal', false)">✕</button>
-
       <div class="auth-tabs">
         <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Login</button>
         <button class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">New User? Sign Up</button>
       </div>
 
-      <!-- LOGIN FORM -->
       <div id="loginForm">
         <h3 style="margin-bottom:4px;">Welcome back! 👋</h3>
-        <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">लॉगिन करें और अपनी खरीदारी जारी रखें।</p>
-        <div class="input-group" style="margin-bottom:12px;">
-          <label>मोबाइल नंबर या Email</label>
-          <input type="text" id="loginUser" placeholder="10 अंकों का मोबाइल या email">
-        </div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">मोबाइल नंबर डालें — OTP से सीधा लॉगिन होगा।</p>
         <div class="input-group" style="margin-bottom:16px;">
-          <label>पासवर्ड</label>
-          <input type="password" id="loginPass" placeholder="पासवर्ड" onkeydown="if(event.key==='Enter')performLogin()">
+          <label>मोबाइल नंबर</label>
+          <input type="tel" id="loginMobile" placeholder="10 अंकों का फोन नंबर" maxlength="10" inputmode="numeric">
         </div>
-        <p class="err-msg" id="loginErr">गलत मोबाइल/email या पासवर्ड!</p>
-        <button class="drawer-checkout blue" onclick="performLogin()">लॉगिन करें</button>
+        <p class="err-msg" id="loginErr"></p>
+        <button class="drawer-checkout blue" onclick="sendLoginOtp()">OTP भेजें ➔</button>
       </div>
 
-      <!-- SIGNUP FORM -->
       <div id="signupForm" style="display:none;">
         <h3 style="margin-bottom:4px;">नया अकाउंट बनाएं ✨</h3>
-        <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">साइन अप करें — मोबाइल नंबर OTP से वेरिफाई होगा।</p>
-        <div class="input-group" style="margin-bottom:12px;">
-          <label>पूरा नाम *</label>
-          <input type="text" id="suName" placeholder="अपना नाम लिखें">
-        </div>
-        <div class="input-group" style="margin-bottom:12px;">
-          <label>मोबाइल नंबर *</label>
-          <input type="tel" id="suMobile" placeholder="10 अंकों का फोन नंबर" maxlength="10">
-          <div class="hint">इसी नंबर पर OTP भेजा जाएगा।</div>
-        </div>
-        <div class="input-group" style="margin-bottom:12px;">
-          <label>Email (optional)</label>
-          <input type="email" id="suEmail" placeholder="you@example.com">
-        </div>
-        <div class="input-group" style="margin-bottom:12px;">
-          <label>पासवर्ड *</label>
-          <input type="password" id="suPass" placeholder="कम से कम 6 अक्षर">
-        </div>
-        <div class="input-group" style="margin-bottom:14px;">
-          <label>पासवर्ड दोबारा लिखें *</label>
-          <input type="password" id="suPass2" placeholder="पासवर्ड कन्फर्म करें">
-        </div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">मोबाइल नंबर OTP से वेरिफाई होगा (असली SMS आएगा)।</p>
+        <div class="input-group" style="margin-bottom:12px;"><label>पूरा नाम *</label><input type="text" id="suName" placeholder="अपना नाम लिखें"></div>
+        <div class="input-group" style="margin-bottom:12px;"><label>मोबाइल नंबर *</label><input type="tel" id="suMobile" placeholder="10 अंकों का फोन नंबर" maxlength="10" inputmode="numeric"><div class="hint">इसी नंबर पर OTP SMS जाएगा।</div></div>
+        <div class="input-group" style="margin-bottom:14px;"><label>Email (optional)</label><input type="email" id="suEmail" placeholder="you@example.com"></div>
         <p class="err-msg" id="suErr"></p>
         <button class="drawer-checkout" onclick="sendSignupOtp()">OTP भेजें ➔</button>
       </div>
 
-      <!-- OTP VERIFY STEP -->
       <div id="otpStep" style="display:none;">
         <h3 style="text-align:center;">📱 OTP वेरिफिकेशन</h3>
-        <p style="font-size:13px; color:var(--muted); text-align:center; margin-top:6px;">
-          6 अंकों का OTP इस नंबर पर भेजा गया: <b id="otpMobileDisplay" style="color:var(--dark);"></b>
-        </p>
-        <div class="otp-row" id="otpRow">
+        <p style="font-size:13px; color:var(--muted); text-align:center; margin-top:6px;">6 अंकों का OTP SMS से भेजा गया: <b id="otpMobileDisplay" style="color:var(--dark);"></b></p>
+        <div class="otp-row">
           <input class="otp-box" id="otp1" maxlength="1" inputmode="numeric">
           <input class="otp-box" id="otp2" maxlength="1" inputmode="numeric">
           <input class="otp-box" id="otp3" maxlength="1" inputmode="numeric">
@@ -435,186 +333,98 @@
           <input class="otp-box" id="otp5" maxlength="1" inputmode="numeric">
           <input class="otp-box" id="otp6" maxlength="1" inputmode="numeric">
         </div>
-        <div class="otp-demo">
-          📩 <b>DEMO OTP:</b> <b id="otpDemoCode">------</b><br>
-          <span style="font-size:11px;">(असली SMS के लिए Fast2SMS / Twilio / MSG91 जैसी सेवा जोड़ें — README देखें)</span>
-        </div>
-        <p class="err-msg" id="otpErr" style="text-align:center;">गलत OTP! फिर से कोशिश करें।</p>
+        <p class="err-msg" id="otpErr" style="text-align:center;"></p>
         <div class="otp-timer">Resend OTP in <b id="otpTimer">30</b>s &nbsp;•&nbsp; <a id="resendLink" style="display:none; cursor:pointer; font-weight:700;" onclick="resendOtp()">Resend OTP</a></div>
-        <button class="drawer-checkout green" style="margin-top:16px;" onclick="verifySignupOtp()">वेरिफाई करें &amp; अकाउंट बनाएं ✓</button>
+        <button class="drawer-checkout green" style="margin-top:16px;" onclick="verifyOtp()">वेरिफाई करें ✓</button>
         <button style="margin-top:8px; width:100%; background:none; border:none; color:var(--primary); font-weight:700; cursor:pointer;" onclick="switchAuthTab('login')">← वापस Login पर जाएं</button>
       </div>
     </div>
   </div>
 
-  <!-- ============ PROFILE MODAL ============ -->
+  <!-- PROFILE MODAL -->
   <div class="modal" id="profileModal">
     <div class="modal-content" style="max-width:460px;">
       <button class="close-modal" onclick="toggleModal('profileModal', false)">✕</button>
       <h3 style="margin-bottom:16px;">👤 मेरी प्रोफ़ाइल</h3>
-      <div class="input-group" style="margin-bottom:12px;">
-        <label>पूरा नाम</label>
-        <input type="text" id="profName">
-      </div>
-      <div class="input-group" style="margin-bottom:12px;">
-        <label>मोबाइल नंबर</label>
-        <input type="text" id="profMobile" disabled style="background:#f5f5f5;">
-      </div>
-      <div class="input-group" style="margin-bottom:12px;">
-        <label>Email</label>
-        <input type="email" id="profEmail">
-      </div>
-      <div class="input-group" style="margin-bottom:12px;">
-        <label>डिफ़ॉल्ट डिलीवरी पता (optional)</label>
-        <textarea id="profAddr" rows="2" placeholder="घर/गली, शहर - पिनकोड"></textarea>
-      </div>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">🕒 सदस्यता: <span id="profSince"></span></p>
+      <div class="input-group" style="margin-bottom:12px;"><label>पूरा नाम</label><input type="text" id="profName"></div>
+      <div class="input-group" style="margin-bottom:12px;"><label>मोबाइल नंबर</label><input type="text" id="profMobile" disabled style="background:#f5f5f5;"></div>
+      <div class="input-group" style="margin-bottom:12px;"><label>Email</label><input type="email" id="profEmail"></div>
+      <div class="input-group" style="margin-bottom:12px;"><label>डिफ़ॉल्ट डिलीवरी पता (optional)</label><textarea id="profAddr" rows="2" placeholder="घर/गली, शहर - पिनकोड"></textarea></div>
       <button class="drawer-checkout blue" onclick="saveProfile()">प्रोफ़ाइल सेव करें</button>
     </div>
   </div>
 
-  <!-- ============ ORDERS MODAL ============ -->
+  <!-- ORDERS MODAL -->
   <div class="modal" id="ordersModal">
     <div class="modal-content" style="max-width:520px;">
       <button class="close-modal" onclick="toggleModal('ordersModal', false)">✕</button>
       <h3 style="margin-bottom:16px;">📦 मेरे ऑर्डर</h3>
-      <div id="ordersList"></div>
+      <div id="ordersList"><div class="empty-state" style="padding:30px;">लोड हो रहा है...</div></div>
     </div>
   </div>
 
-  <!-- ============ CHECKOUT MODAL ============ -->
+  <!-- CHECKOUT MODAL -->
   <div class="modal" id="checkoutModal">
     <div class="modal-content">
       <button class="close-modal" onclick="toggleModal('checkoutModal', false)">✕</button>
-
       <div class="steps-indicator">
         <span class="step-node active" id="stNode1"><span class="num">1</span> ADDRESS</span>
         <span class="step-node" id="stNode2"><span class="num">2</span> SUMMARY</span>
         <span class="step-node" id="stNode3"><span class="num">3</span> PAYMENT</span>
       </div>
 
-      <!-- Step 1: Address -->
       <div id="stepAddress">
         <h4 style="margin-bottom:12px;">डिलीवरी का पता दर्ज करें</h4>
         <div class="form-grid">
-          <div class="input-group">
-            <label>पूरा नाम *</label>
-            <input type="text" id="custName" placeholder="नाम लिखें">
-          </div>
-          <div class="input-group">
-            <label>मोबाइल नंबर *</label>
-            <input type="tel" id="custPhone" placeholder="10 अंकों का फोन नंबर" maxlength="10">
-          </div>
-          <div class="input-group">
-            <label>पिन कोड (Pincode) *</label>
-            <input type="text" id="custPin" placeholder="उदा. 301001" maxlength="6">
-          </div>
-          <div class="input-group">
-            <label>शहर व राज्य *</label>
-            <input type="text" id="custCity" placeholder="शहर, राज्य">
-          </div>
-          <div class="input-group full-w">
-            <label>घर/मकान नं., गली, इलाका *</label>
-            <textarea id="custAddr" rows="2" placeholder="पूरा पता लिखें"></textarea>
-          </div>
+          <div class="input-group"><label>पूरा नाम *</label><input type="text" id="custName" placeholder="नाम लिखें"></div>
+          <div class="input-group"><label>मोबाइल नंबर *</label><input type="tel" id="custPhone" placeholder="10 अंकों का फोन नंबर" maxlength="10"></div>
+          <div class="input-group"><label>पिन कोड *</label><input type="text" id="custPin" placeholder="उदा. 301001" maxlength="6"></div>
+          <div class="input-group"><label>शहर व राज्य *</label><input type="text" id="custCity" placeholder="शहर, राज्य"></div>
+          <div class="input-group full-w"><label>घर/मकान नं., गली, इलाका *</label><textarea id="custAddr" rows="2" placeholder="पूरा पता लिखें"></textarea></div>
         </div>
         <button class="drawer-checkout" style="margin-top:15px;" onclick="goToStep(2)">CONTINUE TO ORDER SUMMARY ➔</button>
       </div>
 
-      <!-- Step 2: Summary -->
       <div id="stepSummary" style="display:none;">
         <h4 style="margin-bottom:10px;">ऑर्डर समरी एवं टैक्स विवरण</h4>
         <div id="summaryItemsReview" style="max-height:140px; overflow-y:auto; border:1px solid var(--border); padding:10px; border-radius:4px; margin-bottom:12px; font-size:13px;"></div>
-
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="couponCode" placeholder="कूपन कोड (Try: TOKRI10 / FLAT50)" style="padding:9px; border:1px solid #ccc; border-radius:4px; flex:1; text-transform:uppercase;">
           <button onclick="applyCoupon()" style="padding:8px 16px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Apply</button>
         </div>
-
         <div class="bill-box">
-          <div class="bill-item"><span>कुल MRP (Base Amount):</span> <span id="billMrp">₹0</span></div>
-          <div class="bill-item"><span>GST (18% Goods &amp; Services Tax):</span> <span id="billGst">₹0</span></div>
+          <div class="bill-item"><span>कुल MRP:</span> <span id="billMrp">₹0</span></div>
+          <div class="bill-item"><span>GST (18%):</span> <span id="billGst">₹0</span></div>
           <div class="bill-item"><span>पैकेजिंग चार्ज:</span> <span>₹29</span></div>
           <div class="bill-item"><span>डिलीवरी चार्ज:</span> <span style="color:var(--success); font-weight:bold;">FREE</span></div>
           <div class="bill-item" id="discountRow" style="display:none; color:var(--success);"><span>कूपन छूट:</span> <span id="billDiscount">-₹0</span></div>
-          <div class="bill-item total-final"><span>कुल देय राशि (Grand Total):</span> <span id="billFinal">₹0</span></div>
+          <div class="bill-item total-final"><span>कुल देय राशि:</span> <span id="billFinal">₹0</span></div>
         </div>
-
         <div style="display:flex; gap:10px;">
           <button class="drawer-checkout gray" style="flex:1;" onclick="goToStep(1)">← Back</button>
           <button class="drawer-checkout" style="flex:2;" onclick="goToStep(3)">CONTINUE TO PAYMENT ➔</button>
         </div>
       </div>
 
-      <!-- Step 3: Payment -->
       <div id="stepPayment" style="display:none;">
         <h4 style="margin-bottom:12px;">भुगतान का माध्यम चुनें</h4>
-        <div class="pay-methods" id="payMethods">
+        <div class="pay-methods">
           <label class="pay-option selected">
-            <input type="radio" name="payMethod" value="UPI" checked onchange="onPayChange(this)">
-            <div><strong>UPI (GPay / PhonePe / Paytm)</strong><div style="font-size:12px; color:#666;">QR स्कैन करें या UPI ID से भुगतान करें</div></div>
-          </label>
-          <label class="pay-option">
-            <input type="radio" name="payMethod" value="Card" onchange="onPayChange(this)">
-            <div><strong>Credit / Debit / ATM Card</strong><div style="font-size:12px; color:#666;">Visa, MasterCard, RuPay</div></div>
+            <input type="radio" name="payMethod" value="Online" checked onchange="onPayChange(this)">
+            <div><strong>💳 Online Payment (UPI / Card / NetBanking / Wallet)</strong><div style="font-size:12px; color:#666;">Razorpay secure checkout — 100% सुरक्षित</div></div>
           </label>
           <label class="pay-option">
             <input type="radio" name="payMethod" value="COD">
-            <div><strong>Cash On Delivery (COD)</strong><div style="font-size:12px; color:#666;">सामान मिलने पर नकद भुगतान करें</div></div>
+            <div><strong>💵 Cash On Delivery (COD)</strong><div style="font-size:12px; color:#666;">सामान मिलने पर नकद भुगतान करें</div></div>
           </label>
         </div>
-
-        <!-- UPI sub-panel -->
-        <div class="pay-sub" id="payUpi" style="display:block;">
-          <div class="upi-qr-wrap">
-            <img id="upiQrImg" src="" alt="UPI QR" style="display:none;">
-            <div id="upiQrFallback" style="display:none; padding:20px; color:var(--muted);">QR लोड नहीं हो सका — नीचे UPI ID से भुगतान करें।</div>
-            <div class="upi-id-pill">
-              <span id="upiIdText">tokribazaar@ybl</span>
-              <button onclick="copyUpiId()">Copy</button>
-            </div>
-          </div>
-          <div class="secure-note">🔒 स्कैन करने पर <b id="upiAmountText">₹0</b> का भुगतान होगा</div>
-          <button class="drawer-checkout green" style="margin-top:14px;" onclick="confirmUpiPayment()">मैंने भुगतान कर दिया ✓</button>
-        </div>
-
-        <!-- Card sub-panel -->
-        <div class="pay-sub" id="payCard">
-          <div class="form-grid">
-            <div class="input-group full-w">
-              <label>कार्ड नंबर *</label>
-              <input type="text" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19" inputmode="numeric" oninput="formatCardNumber(this)">
-            </div>
-            <div class="input-group full-w">
-              <label>कार्ड पर लिखा नाम *</label>
-              <input type="text" id="cardName" placeholder="जैसा कार्ड पर लिखा है">
-            </div>
-            <div class="input-group">
-              <label>एक्सपायरी (MM/YY) *</label>
-              <input type="text" id="cardExp" placeholder="MM/YY" maxlength="5" inputmode="numeric" oninput="formatExpiry(this)">
-            </div>
-            <div class="input-group">
-              <label>CVV *</label>
-              <input type="password" id="cardCvv" placeholder="•••" maxlength="4" inputmode="numeric">
-            </div>
-          </div>
-          <p class="err-msg" id="cardErr" style="display:block; margin-top:10px;"></p>
-          <div class="secure-note">🔒 आपकी कार्ड जानकारी 256-bit encryption से सुरक्षित है</div>
-          <button class="drawer-checkout green" style="margin-top:14px;" onclick="confirmCardPayment()">PAY <span id="cardPayAmount">₹0</span> ➔</button>
-        </div>
-
-        <!-- COD sub-panel -->
-        <div class="pay-sub" id="payCod">
-          <div class="secure-note" style="justify-content:flex-start; gap:10px; padding:8px 4px;">💵 डिलीवरी के समय नकद भुगतान करें। कृपया उचित राशि तैयार रखें।</div>
-          <button class="drawer-checkout green" style="margin-top:14px;" onclick="confirmCodOrder()">PLACE COD ORDER ➔</button>
-        </div>
-
-        <div style="display:flex; gap:10px;">
+        <div class="secure-note">🔒 Razorpay 256-bit encryption — आपकी जानकारी पूरी तरह सुरक्षित</div>
+        <div style="display:flex; gap:10px; margin-top:15px;">
           <button class="drawer-checkout gray" style="flex:1;" onclick="goToStep(2)">← Back</button>
+          <button class="drawer-checkout green" style="flex:2;" onclick="placeOrder()">PLACE ORDER ➔</button>
         </div>
       </div>
 
-      <!-- Step 4: Success -->
       <div id="stepSuccess" class="order-success-screen" style="display:none;">
         <div class="success-icon">✓</div>
         <h2>ऑर्डर सफलतापूर्वक स्वीकार कर लिया गया!</h2>
@@ -623,72 +433,83 @@
         <button class="drawer-checkout blue" onclick="window.print()">🖨️ Print / Save Invoice (PDF)</button>
         <button style="margin-top:10px; background:none; border:none; color:var(--primary); font-weight:bold; cursor:pointer;" onclick="location.reload()">वापस मुख्य पेज पर जाएँ</button>
       </div>
-
     </div>
   </div>
 
-  <!-- ============ PROCESSING OVERLAY ============ -->
+  <!-- recaptcha (invisible) container — Firebase phone OTP ke liye zaroori -->
+  <div id="recaptcha-container"></div>
+
   <div class="processing-overlay" id="processingOverlay">
     <div class="spinner"></div>
-    <p id="processingTitle">Processing Payment...</p>
-    <span id="processingSub">कृपया प्रतीक्षा करें, पेज बंद न करें</span>
+    <p id="processingTitle">Processing...</p>
+    <span id="processingSub">कृपया प्रतीक्षा करें</span>
   </div>
 
   <script>
     /* =====================================================
-       TokriBazaar — Full Professional Store (Single File)
-       Data: localStorage (browser). Real backend के लिए README देखें.
+       TokriBazaar — LIVE version
+       Firebase Auth (real SMS OTP) + Firestore (cloud DB)
+       + Razorpay (real payment)
     ===================================================== */
 
-    // ---------- Product Database ----------
+    // ================= CONFIG — YAHAN APNI KEYS BHAREN =================
+    const FIREBASE_CONFIG = {
+      apiKey: "// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCJZSJxHRXWEcpe4ZOWf-0UR9aeJvaFKlI",
+  authDomain: "tokribazaar-7e851.firebaseapp.com",
+  projectId: "tokribazaar-7e851",
+  storageBucket: "tokribazaar-7e851.firebasestorage.app",
+  messagingSenderId: "158009318257",
+  appId: "1:158009318257:web:0b20bfe4c62a9246cf34d0",
+  measurementId: "G-SC7SJMPXQR"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    const RAZORPAY_KEY_ID = "rzp_test_YOUR_KEY";   // test mode key
+    const BACKEND_URL = "https://your-backend.onrender.com"; // server.js ka URL
+    // ===================================================================
+
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let pendingSignup = null;       // {name, mobile, email} — OTP pending signup
+    let confirmationResult = null;  // Firebase phone auth confirmation
+    let otpTimerInterval = null;
+
+    // ---------- Product DB ----------
     const catalog = [
-      { id: 101, name: "Noise ColorFit Pulse Smartwatch (Jet Black)", cat: "Electronics", price: 1499, mrp: 3999, rating: "4.2 ★", img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400" },
-      { id: 102, name: "Sparx Men's Sport Running Shoes", cat: "Fashion", price: 1199, mrp: 2499, rating: "4.4 ★", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400" },
-      { id: 103, name: "Boat Rockerz 450 Bluetooth On-Ear Headphones", cat: "Accessories", price: 999, mrp: 2990, rating: "4.1 ★", img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400" },
-      { id: 104, name: "Cotton Casual Checkered Shirt for Men", cat: "Fashion", price: 599, mrp: 1499, rating: "4.0 ★", img: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400" },
-      { id: 105, name: "Stainless Steel Thermal Insulated Water Bottle 1L", cat: "Home", price: 449, mrp: 899, rating: "4.5 ★", img: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400" },
-      { id: 106, name: "Fast Charging 20000mAh Power Bank Type-C", cat: "Electronics", price: 1299, mrp: 2999, rating: "4.3 ★", img: "https://images.unsplash.com/photo-1609592424304-4e94f1ff811f?w=400" }
+      { id: 101, name: "Noise ColorFit Pulse Smartwatch (Jet Black)", cat: "Electronics", price: 1499, mrp: 3999, rating: "4.2", img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400" },
+      { id: 102, name: "Sparx Men's Sport Running Shoes", cat: "Fashion", price: 1199, mrp: 2499, rating: "4.4", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400" },
+      { id: 103, name: "Boat Rockerz 450 Bluetooth On-Ear Headphones", cat: "Accessories", price: 999, mrp: 2990, rating: "4.1", img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400" },
+      { id: 104, name: "Cotton Casual Checkered Shirt for Men", cat: "Fashion", price: 599, mrp: 1499, rating: "4.0", img: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400" },
+      { id: 105, name: "Stainless Steel Thermal Insulated Water Bottle 1L", cat: "Home", price: 449, mrp: 899, rating: "4.5", img: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400" },
+      { id: 106, name: "Fast Charging 20000mAh Power Bank Type-C", cat: "Electronics", price: 1299, mrp: 2999, rating: "4.3", img: "https://images.unsplash.com/photo-1609592424304-4e94f1ff811f?w=400" }
     ];
 
-    // ---------- App State ----------
+    // ---------- State ----------
     let cart = JSON.parse(localStorage.getItem("tb_cart") || "[]");
     let discountAmount = 0;
     let currentFinalAmount = 0;
-    let pendingCheckout = false;     // login के बाद checkout जारी रखने के लिए
-    let pendingSignup = null;        // OTP पेंडिंग यूज़र
-    let otpTimerInterval = null;
-    const MERCHANT_UPI = "tokribazaar@ybl";
-    const MERCHANT_NAME = "TokriBazaar";
 
-    // ---------- Storage helpers ----------
-    const DB = {
-      users: () => JSON.parse(localStorage.getItem("tb_users") || "[]"),
-      saveUsers: (u) => localStorage.setItem("tb_users", JSON.stringify(u)),
-      session: () => JSON.parse(localStorage.getItem("tb_session") || "null"),
-      saveSession: (s) => localStorage.setItem("tb_session", JSON.stringify(s)),
-      orders: () => JSON.parse(localStorage.getItem("tb_orders") || "[]"),
-      saveOrders: (o) => localStorage.setItem("tb_orders", JSON.stringify(o)),
-      loginLog: () => JSON.parse(localStorage.getItem("tb_login_log") || "[]"),
-      logLogin: (entry) => {
-        const l = DB.loginLog();
-        l.push(entry);
-        localStorage.setItem("tb_login_log", JSON.stringify(l));
-      },
-      saveCart: () => localStorage.setItem("tb_cart", JSON.stringify(cart))
-    };
-
-    // Simple demo hash (client-side demo only — real security needs a backend)
-    function hashStr(s) {
-      let h1 = 5381, h2 = 52711;
-      for (let i = 0; i < s.length; i++) {
-        const c = s.charCodeAt(i);
-        h1 = ((h1 << 5) + h1 + c) >>> 0;
-        h2 = ((h2 << 5) + h2 ^ c) >>> 0;
-      }
-      return (h1.toString(16) + h2.toString(16));
-    }
-
-    // ---------- Toast system ----------
+    // ---------- Toast ----------
     function showToast(msg, type = "info") {
       const c = document.getElementById("toastContainer");
       const t = document.createElement("div");
@@ -699,7 +520,7 @@
       setTimeout(() => t.remove(), 3000);
     }
 
-    // ---------- Cart Toast (dropdown) ----------
+    // ---------- Cart toast ----------
     let cartToastTimeout = null;
     function showCartToast(product) {
       document.getElementById("cartToastImg").src = product.img;
@@ -709,47 +530,34 @@
       clearTimeout(cartToastTimeout);
       cartToastTimeout = setTimeout(() => el.classList.remove("show"), 2600);
     }
-    function viewCartFromToast() {
-      document.getElementById("cartToast").classList.remove("show");
-      toggleDrawer(true);
-    }
+    function viewCartFromToast() { document.getElementById("cartToast").classList.remove("show"); toggleDrawer(true); }
 
-    // ---------- Image fallback ----------
     function imgFallback(el) {
       el.onerror = null;
-      el.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="100%" height="100%" fill="#eef1f6"/><text x="50%" y="50%" font-size="48" text-anchor="middle" dominant-baseline="middle">🛍️</text></svg>');
+      el.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="100%" height="100%" fill="#eef1f6"/><text x="50%" y="50%" font-size="48" text-anchor="middle" dominant-baseline="middle">🛍️</text></svg>');
     }
 
-    // ---------- Render Products ----------
+    // ---------- Render products ----------
     function displayProducts(items) {
       const container = document.getElementById("productGrid");
       container.innerHTML = "";
-      if (!items.length) {
-        container.innerHTML = `<div class="empty-state">😕 कोई प्रोडक्ट नहीं मिला। कुछ और खोजें!</div>`;
-        return;
-      }
+      if (!items.length) { container.innerHTML = `<div class="empty-state">😕 कोई प्रोडक्ट नहीं मिला।</div>`; return; }
       items.forEach(p => {
         const off = Math.round(((p.mrp - p.price) / p.mrp) * 100);
         container.innerHTML += `
           <div class="prod-card">
-            <span class="tag">${off}% OFF</span>
-            <span class="tag free">FREE DELIVERY</span>
+            <span class="tag">${off}% OFF</span><span class="tag free">FREE DELIVERY</span>
             <img src="${p.img}" alt="${p.name}" onerror="imgFallback(this)">
             <div>
-              <div class="rating-pill">★ ${p.rating.split(' ')[0]}</div>
+              <div class="rating-pill">★ ${p.rating}</div>
               <h4>${p.name}</h4>
-              <div class="prices">
-                <span class="curr-price">₹${p.price.toLocaleString('en-IN')}</span>
-                <span class="cut-price">₹${p.mrp.toLocaleString('en-IN')}</span>
-              </div>
+              <div class="prices"><span class="curr-price">₹${p.price.toLocaleString('en-IN')}</span><span class="cut-price">₹${p.mrp.toLocaleString('en-IN')}</span></div>
             </div>
             <div class="card-actions">
               <button class="btn-cart" onclick="addToCart(${p.id})">ADD TO CART</button>
               <button class="btn-buy" onclick="directBuy(${p.id})">BUY NOW</button>
             </div>
-          </div>
-        `;
+          </div>`;
       });
     }
 
@@ -758,49 +566,39 @@
       el.classList.add("active");
       displayProducts(cat === "All" ? catalog : catalog.filter(p => p.cat === cat));
     }
-
     function handleSearch() {
       const q = document.getElementById("searchInput").value.trim().toLowerCase();
       displayProducts(catalog.filter(p => p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q)));
     }
 
-    // ---------- Cart handlers ----------
+    // ---------- Cart ----------
     function addToCart(id) {
       const existing = cart.find(i => i.id === id);
       if (existing) existing.qty += 1;
       else cart.push({ ...catalog.find(p => p.id === id), qty: 1 });
-      DB.saveCart();
+      localStorage.setItem("tb_cart", JSON.stringify(cart));
       renderCart();
-      const product = catalog.find(p => p.id === id);
-      showCartToast(product);   // ✅ केवल dropdown toast, side drawer नहीं
+      showCartToast(catalog.find(p => p.id === id));
     }
-
     function changeQty(index, change) {
-      if (change === -999) { cart.splice(index, 1); }
-      else {
-        cart[index].qty += change;
-        if (cart[index].qty <= 0) cart.splice(index, 1);
-      }
-      DB.saveCart();
+      if (change === -999) cart.splice(index, 1);
+      else { cart[index].qty += change; if (cart[index].qty <= 0) cart.splice(index, 1); }
+      localStorage.setItem("tb_cart", JSON.stringify(cart));
       renderCart();
     }
-
     function renderCart() {
       const rows = document.getElementById("cartRows");
-      const badge = document.getElementById("cartCount");
-      const drawerBadge = document.getElementById("cartDrawerCount");
-      const subtotalEl = document.getElementById("drawerSubtotal");
       let totalItems = 0, totalSum = 0;
-
       if (!cart.length) {
         rows.innerHTML = `<p style="text-align:center; color:#888; margin-top:40px;">🛒 आपकी टोकरी खाली है!</p>`;
-        badge.innerText = "0"; drawerBadge.innerText = "0"; subtotalEl.innerText = "₹0";
+        document.getElementById("cartCount").innerText = "0";
+        document.getElementById("cartDrawerCount").innerText = "0";
+        document.getElementById("drawerSubtotal").innerText = "₹0";
         return;
       }
       rows.innerHTML = "";
       cart.forEach((item, index) => {
-        totalItems += item.qty;
-        totalSum += item.price * item.qty;
+        totalItems += item.qty; totalSum += item.price * item.qty;
         rows.innerHTML += `
           <div class="cart-row">
             <img src="${item.img}" alt="" onerror="imgFallback(this)">
@@ -814,24 +612,19 @@
               </div>
               <button class="btn-del" onclick="changeQty(${index}, -999)">हटाएं</button>
             </div>
-          </div>
-        `;
+          </div>`;
       });
-      badge.innerText = totalItems;
-      drawerBadge.innerText = totalItems;
-      subtotalEl.innerText = "₹" + totalSum.toLocaleString('en-IN');
+      document.getElementById("cartCount").innerText = totalItems;
+      document.getElementById("cartDrawerCount").innerText = totalItems;
+      document.getElementById("drawerSubtotal").innerText = "₹" + totalSum.toLocaleString('en-IN');
     }
-
     function toggleDrawer(open) {
       document.getElementById("cartDrawer").classList.toggle("open", open);
       document.getElementById("drawerOverlay").style.display = open ? "block" : "none";
     }
+    function toggleModal(id, show) { document.getElementById(id).classList.toggle("open", show); }
 
-    function toggleModal(id, show) {
-      document.getElementById(id).classList.toggle("open", show);
-    }
-
-    // ---------- Auth: tabs ----------
+    // ==================== FIREBASE AUTH (real OTP) ====================
     function openAuth(tab) { switchAuthTab(tab); toggleModal("authModal", true); }
 
     function switchAuthTab(tab) {
@@ -843,46 +636,124 @@
       document.getElementById("tabSignup").classList.toggle("active", !isLogin);
       document.getElementById("loginErr").style.display = "none";
       document.getElementById("suErr").style.display = "none";
+      document.getElementById("otpErr").style.display = "none";
     }
 
-    // ---------- Auth: signup + OTP ----------
+    function getRecaptcha() {
+      if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+          size: 'invisible',
+          callback: () => {}
+        });
+      }
+      return window.recaptchaVerifier;
+    }
+
+    function sendLoginOtp() {
+      const mobile = document.getElementById("loginMobile").value.trim();
+      const err = document.getElementById("loginErr");
+      if (!/^[6-9]\d{9}$/.test(mobile)) return showErr(err, "सही 10 अंकों का मोबाइल नंबर डालें।");
+      pendingSignup = null;
+      sendOtp(mobile, err);
+    }
+
     function sendSignupOtp() {
       const name = document.getElementById("suName").value.trim();
       const mobile = document.getElementById("suMobile").value.trim();
       const email = document.getElementById("suEmail").value.trim();
-      const pass = document.getElementById("suPass").value;
-      const pass2 = document.getElementById("suPass2").value;
       const err = document.getElementById("suErr");
+      if (name.length < 3) return showErr(err, "पूरा नाम लिखें।");
+      if (!/^[6-9]\d{9}$/.test(mobile)) return showErr(err, "सही 10 अंकों का मोबाइल नंबर डालें।");
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr(err, "सही email डालें।");
 
-      if (name.length < 3) return showErr(err, "कृपया पूरा नाम (कम से कम 3 अक्षर) लिखें।");
-      if (!/^[6-9]\d{9}$/.test(mobile)) return showErr(err, "सही 10 अंकों का मोबाइल नंबर डालें (6-9 से शुरू)।");
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr(err, "सही email पता डालें।");
-      if (pass.length < 6) return showErr(err, "पासवर्ड कम से कम 6 अक्षर का होना चाहिए।");
-      if (pass !== pass2) return showErr(err, "दोनों पासवर्ड मेल नहीं खा रहे।");
-      if (DB.users().some(u => u.mobile === mobile)) return showErr(err, "यह मोबाइल नंबर पहले से रजिस्टर्ड है। कृपया Login करें।");
+      // Check: already registered?
+      db.collection("users").where("phone", "==", mobile).get().then(snap => {
+        if (!snap.empty) { showErr(err, "यह नंबर पहले से रजिस्टर्ड है। कृपया Login करें।"); return; }
+        pendingSignup = { name, mobile, email };
+        sendOtp(mobile, err);
+      }).catch(() => showErr(err, "Database error. Baad me try karein."));
+    }
 
-      // Generate 6-digit OTP
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
-      pendingSignup = { name, mobile, email, passHash: hashStr(pass), otp, expiry: Date.now() + 5 * 60 * 1000 };
+    function sendOtp(mobile, errEl) {
+      const appVerifier = getRecaptcha();
+      auth.signInWithPhoneNumber("+91" + mobile, appVerifier)
+        .then(conf => {
+          confirmationResult = conf;
+          document.getElementById("loginForm").style.display = "none";
+          document.getElementById("signupForm").style.display = "none";
+          document.getElementById("otpStep").style.display = "block";
+          document.getElementById("otpMobileDisplay").innerText = "+91 " + mobile;
+          document.getElementById("otpErr").style.display = "none";
+          clearOtpBoxes();
+          startOtpTimer(30);
+          showToast("OTP SMS भेज दिया गया ✅", "success");
+        })
+        .catch(err => {
+          console.error(err);
+          window.recaptchaVerifier = null; // next attempt ke liye reset
+          showErr(errEl, "OTP भेजने में दिक्कत: " + (err.code === 'auth/invalid-phone-number' ? "गलत नंबर" : err.message));
+        });
+    }
 
-      // Show OTP step
-      document.getElementById("signupForm").style.display = "none";
-      document.getElementById("otpStep").style.display = "block";
-      document.getElementById("otpMobileDisplay").innerText = "+91 " + mobile;
-      document.getElementById("otpDemoCode").innerText = otp;
-      document.getElementById("otpErr").style.display = "none";
-      clearOtpBoxes();
-      startOtpTimer(30);
-      showToast("OTP भेजा गया: " + otp + " (डेमो)", "info");
+    function verifyOtp() {
+      if (!confirmationResult) return;
+      let code = "";
+      for (let i = 1; i <= 6; i++) code += document.getElementById("otp" + i).value;
+      const err = document.getElementById("otpErr");
+      if (code.length !== 6) return showErr(err, "पूरा 6 अंकों का OTP डालें।");
+
+      confirmationResult.confirm(code).then(result => {
+        const user = result.user;   // Firebase user (uid, phoneNumber)
+        clearInterval(otpTimerInterval);
+
+        if (pendingSignup) {
+          // ---- New user: create Firestore doc ----
+          db.collection("users").doc(user.uid).set({
+            name: pendingSignup.name,
+            phone: pendingSignup.mobile,
+            email: pendingSignup.email || "",
+            address: "",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }).then(() => {
+            pendingSignup = null;
+            toggleModal("authModal", false);
+            showToast("🎉 अकाउंट बन गया! Welcome, " + user.displayName || pendingSignup?.name || "User", "success");
+            afterAuthSuccess();
+          });
+        } else {
+          // ---- Login: check user exists ----
+          db.collection("users").doc(user.uid).get().then(doc => {
+            if (!doc.exists) {
+              // Not registered → signup bharne bolo
+              document.getElementById("otpStep").style.display = "none";
+              switchAuthTab("signup");
+              document.getElementById("suMobile").value = user.phoneNumber.replace("+91", "");
+              showToast("यह नंबर रजिस्टर्ड नहीं है — पहले Sign Up करें", "error");
+              return;
+            }
+            toggleModal("authModal", false);
+            showToast("👋 Welcome back, " + doc.data().name + "!", "success");
+            afterAuthSuccess();
+          });
+        }
+      }).catch(err => {
+        console.error(err);
+        showErr(err, "गलत OTP! फिर से कोशिश करें।");
+      });
+    }
+
+    function afterAuthSuccess() { /* checkout pending tha to continue */ if (pendingCheckout) { pendingCheckout = false; startCheckout(); } }
+
+    function resendOtp() {
+      const mobile = (pendingSignup ? pendingSignup.mobile : document.getElementById("loginMobile").value.trim());
+      const err = document.getElementById("otpErr");
+      err.style.display = "none";
+      window.recaptchaVerifier = null;
+      sendOtp(mobile, err);
     }
 
     function showErr(el, msg) { el.innerText = msg; el.style.display = "block"; }
-
-    function clearOtpBoxes() {
-      for (let i = 1; i <= 6; i++) document.getElementById("otp" + i).value = "";
-      document.getElementById("otp1").focus();
-    }
-
+    function clearOtpBoxes() { for (let i = 1; i <= 6; i++) document.getElementById("otp" + i).value = ""; document.getElementById("otp1").focus(); }
     function startOtpTimer(sec) {
       clearInterval(otpTimerInterval);
       let s = sec;
@@ -890,183 +761,105 @@
       document.getElementById("resendLink").style.display = "none";
       otpTimerInterval = setInterval(() => {
         s--;
-        if (s <= 0) {
-          clearInterval(otpTimerInterval);
-          document.getElementById("otpTimer").innerText = "0";
-          document.getElementById("resendLink").style.display = "inline";
-        } else {
-          document.getElementById("otpTimer").innerText = s;
-        }
+        if (s <= 0) { clearInterval(otpTimerInterval); document.getElementById("otpTimer").innerText = "0"; document.getElementById("resendLink").style.display = "inline"; }
+        else document.getElementById("otpTimer").innerText = s;
       }, 1000);
     }
 
-    function resendOtp() {
-      if (!pendingSignup) return;
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
-      pendingSignup.otp = otp;
-      pendingSignup.expiry = Date.now() + 5 * 60 * 1000;
-      document.getElementById("otpDemoCode").innerText = otp;
-      clearOtpBoxes();
-      startOtpTimer(30);
-      showToast("नया OTP भेजा गया: " + otp, "info");
-    }
-
-    function verifySignupOtp() {
-      if (!pendingSignup) return;
-      let entered = "";
-      for (let i = 1; i <= 6; i++) entered += document.getElementById("otp" + i).value;
-      const err = document.getElementById("otpErr");
-
-      if (entered.length !== 6) return showErr(err, "कृपया पूरा 6 अंकों का OTP डालें।");
-      if (entered !== pendingSignup.otp) return showErr(err, "गलत OTP! फिर से कोशिश करें।");
-      if (Date.now() > pendingSignup.expiry) return showErr(err, "OTP एक्सपायर हो गया। Resend करें।");
-
-      // Create user & store
-      const users = DB.users();
-      const newUser = {
-        id: "U" + Math.floor(10000 + Math.random() * 90000),
-        name: pendingSignup.name,
-        mobile: pendingSignup.mobile,
-        email: pendingSignup.email || "",
-        passHash: pendingSignup.passHash,
-        address: "",
-        createdAt: new Date().toISOString()
-      };
-      users.push(newUser);
-      DB.saveUsers(users);
-      pendingSignup = null;
-      clearInterval(otpTimerInterval);
-
-      setSession(newUser);
-      toggleModal("authModal", false);
-      updateUserHeader();
-      showToast("✅ अकाउंट सफलतापूर्वक बन गया! Welcome, " + newUser.name + " 🎉", "success");
-      if (pendingCheckout) { pendingCheckout = false; startCheckout(); }
-    }
-
-    // ---------- Auth: login ----------
-    function performLogin() {
-      const id = document.getElementById("loginUser").value.trim().toLowerCase();
-      const pass = document.getElementById("loginPass").value;
-      const err = document.getElementById("loginErr");
-      if (!id || !pass) return showErr(err, "मोबाइल/email और पासवर्ड दोनों भरें।");
-
-      const user = DB.users().find(u => u.mobile === id || (u.email && u.email.toLowerCase() === id));
-      if (!user || user.passHash !== hashStr(pass)) return showErr(err, "गलत मोबाइल/email या पासवर्ड!");
-
-      DB.logLogin({ userId: user.id, name: user.name, mobile: user.mobile, time: new Date().toISOString() });
-      setSession(user);
-      toggleModal("authModal", false);
-      updateUserHeader();
-      showToast("👋 Welcome back, " + user.name + "!", "success");
-      if (pendingCheckout) { pendingCheckout = false; startCheckout(); }
-    }
-
-    function setSession(user) {
-      DB.saveSession({ id: user.id, name: user.name, mobile: user.mobile, email: user.email });
-    }
-
     function logout() {
-      DB.saveSession(null);
-      updateUserHeader();
+      auth.signOut();
       showToast("आप लॉग आउट हो गए हैं।", "info");
     }
 
+    // Auth state listener
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      updateUserHeader();
+    });
+
     function updateUserHeader() {
-      const s = DB.session();
       const el = document.getElementById("userSection");
-      if (!s) {
+      if (!currentUser) {
         el.innerHTML = `<button class="login-btn" onclick="openAuth('login')">Login</button>`;
         return;
       }
-      el.innerHTML = `
-        <div class="user-menu" id="userMenu">
-          <button class="trigger" onclick="toggleUserMenu(event)">Hi, ${s.name.split(' ')[0]} <span class="caret">▼</span></button>
-          <div class="user-dropdown">
-            <div class="ud-head"><div class="n">${s.name}</div><div class="m">${s.mobile}${s.email ? ' • ' + s.email : ''}</div></div>
-            <a onclick="openProfile()">👤 My Profile</a>
-            <a onclick="openOrders()">📦 My Orders</a>
-            <a onclick="exportData()">📥 Export My Data</a>
-            <a class="danger" onclick="logout()">🚪 Logout</a>
-          </div>
-        </div>`;
+      db.collection("users").doc(currentUser.uid).get().then(doc => {
+        const d = doc.exists ? doc.data() : {};
+        const displayName = d.name || currentUser.phoneNumber || "User";
+        el.innerHTML = `
+          <div class="user-menu" id="userMenu">
+            <button class="trigger" onclick="toggleUserMenu(event)">Hi, ${displayName.split(' ')[0]} <span class="caret">▼</span></button>
+            <div class="user-dropdown">
+              <div class="ud-head"><div class="n">${displayName}</div><div class="m">${d.phone ? '+91 ' + d.phone : currentUser.phoneNumber}</div></div>
+              <a onclick="openProfile()">👤 My Profile</a>
+              <a onclick="openOrders()">📦 My Orders</a>
+              <a class="danger" onclick="logout()">🚪 Logout</a>
+            </div>
+          </div>`;
+      });
     }
 
-    function toggleUserMenu(e) {
-      e.stopPropagation();
-      document.getElementById("userMenu").classList.toggle("open");
-    }
-    document.addEventListener("click", (e) => {
-      const m = document.getElementById("userMenu");
-      if (m && !m.contains(e.target)) m.classList.remove("open");
-    });
+    function toggleUserMenu(e) { e.stopPropagation(); const m = document.getElementById("userMenu"); if (m) m.classList.toggle("open"); }
+    document.addEventListener("click", (e) => { const m = document.getElementById("userMenu"); if (m && !m.contains(e.target)) m.classList.remove("open"); });
 
-    // ---------- Profile & Orders ----------
+    // ---------- Profile ----------
     function openProfile() {
-      const s = DB.session();
-      if (!s) return openAuth("login");
-      const u = DB.users().find(x => x.id === s.id) || s;
-      document.getElementById("profName").value = u.name || "";
-      document.getElementById("profMobile").value = u.mobile || "";
-      document.getElementById("profEmail").value = u.email || "";
-      document.getElementById("profAddr").value = u.address || "";
-      document.getElementById("profSince").innerText = new Date(u.createdAt).toLocaleDateString("hi-IN");
-      document.getElementById("userMenu").classList.remove("open");
-      toggleModal("profileModal", true);
+      if (!currentUser) return openAuth("login");
+      db.collection("users").doc(currentUser.uid).get().then(doc => {
+        const d = doc.exists ? doc.data() : {};
+        document.getElementById("profName").value = d.name || "";
+        document.getElementById("profMobile").value = d.phone ? "+91 " + d.phone : (currentUser.phoneNumber || "");
+        document.getElementById("profEmail").value = d.email || "";
+        document.getElementById("profAddr").value = d.address || "";
+        document.getElementById("userMenu").classList.remove("open");
+        toggleModal("profileModal", true);
+      });
     }
-
     function saveProfile() {
-      const s = DB.session();
-      if (!s) return;
-      const users = DB.users();
-      const u = users.find(x => x.id === s.id);
+      if (!currentUser) return;
       const name = document.getElementById("profName").value.trim();
       const email = document.getElementById("profEmail").value.trim();
-      if (name.length < 3) return showToast("कृपया सही नाम लिखें", "error");
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showToast("सही email पता डालें", "error");
-      if (u) { u.name = name; u.email = email; u.address = document.getElementById("profAddr").value.trim(); DB.saveUsers(users); }
-      setSession({ id: s.id, name, mobile: u ? u.mobile : s.mobile, email });
-      toggleModal("profileModal", false);
-      updateUserHeader();
-      showToast("✅ प्रोफ़ाइल अपडेट हो गई", "success");
+      if (name.length < 3) return showToast("सही नाम लिखें", "error");
+      db.collection("users").doc(currentUser.uid).update({
+        name, email, address: document.getElementById("profAddr").value.trim()
+      }).then(() => {
+        toggleModal("profileModal", false);
+        updateUserHeader();
+        showToast("✅ प्रोफ़ाइल अपडेट हो गई", "success");
+      }).catch(() => showToast("Error saving profile", "error"));
     }
 
+    // ---------- Orders (Firestore) ----------
     function openOrders() {
-      const s = DB.session();
-      if (!s) return openAuth("login");
+      if (!currentUser) return openAuth("login");
       document.getElementById("userMenu").classList.remove("open");
-      const list = document.getElementById("ordersList");
-      const myOrders = DB.orders().filter(o => o.userId === s.id).sort((a, b) => new Date(b.date) - new Date(a.date));
-      if (!myOrders.length) {
-        list.innerHTML = `<div class="empty-state" style="padding:30px;">📦 अभी तक कोई ऑर्डर नहीं है।</div>`;
-      } else {
-        list.innerHTML = myOrders.map(o => `
-          <div class="order-card">
-            <div class="order-head">
-              <span><b>${o.orderId}</b> &nbsp;•&nbsp; ${new Date(o.date).toLocaleDateString("hi-IN")}</span>
-              <span class="status-badge">${o.status}</span>
-            </div>
-            <div class="order-body">
-              ${o.items.map(it => `<div class="order-item"><img src="${it.img}" onerror="imgFallback(this)"><span>${it.name} × ${it.qty}</span></div>`).join("")}
-              <div style="display:flex; justify-content:space-between; margin-top:8px; font-weight:800;">
-                <span>${o.paymentMode}</span><span>${o.total}</span>
-              </div>
-            </div>
-          </div>`).join("");
-      }
       toggleModal("ordersModal", true);
+      const list = document.getElementById("ordersList");
+      db.collection("orders").where("userId", "==", currentUser.uid).orderBy("createdAt", "desc").get()
+        .then(snap => {
+          if (snap.empty) { list.innerHTML = `<div class="empty-state" style="padding:30px;">📦 अभी तक कोई ऑर्डर नहीं है।</div>`; return; }
+          list.innerHTML = "";
+          snap.forEach(doc => {
+            const o = doc.data();
+            list.innerHTML += `
+              <div class="order-card">
+                <div class="order-head"><span><b>${o.orderId}</b> &nbsp;•&nbsp; ${new Date(o.createdAt.seconds * 1000).toLocaleDateString("hi-IN")}</span><span class="status-badge">${o.status}</span></div>
+                <div class="order-body">
+                  ${o.items.map(it => `<div class="order-item"><img src="${it.img}" onerror="imgFallback(this)"><span>${it.name} × ${it.qty}</span></div>`).join("")}
+                  <div style="display:flex; justify-content:space-between; margin-top:8px; font-weight:800;"><span>${o.paymentMode}</span><span>${o.total}</span></div>
+                </div>
+              </div>`;
+          });
+        })
+        .catch(() => { list.innerHTML = `<div class="empty-state" style="padding:30px;">Error loading orders</div>`; });
     }
 
-    // ---------- Checkout ----------
+    // ==================== CHECKOUT ====================
+    let pendingCheckout = false;
+
     function startCheckout() {
-      if (!cart.length) { showToast("कृपया पहले कार्ट में सामान जोड़ें!", "error"); return; }
-      if (!DB.session()) {
-        pendingCheckout = true;
-        toggleDrawer(false);
-        openAuth("login");
-        showToast("ऑर्डर करने के लिए पहले Login करें", "info");
-        return;
-      }
+      if (!cart.length) { showToast("पहले कार्ट में सामान जोड़ें!", "error"); return; }
+      if (!currentUser) { pendingCheckout = true; toggleDrawer(false); openAuth("login"); showToast("ऑर्डर के लिए पहले Login करें", "info"); return; }
       toggleDrawer(false);
       prefillAddress();
       goToStep(1);
@@ -1074,16 +867,18 @@
     }
 
     function prefillAddress() {
-      const s = DB.session();
-      const u = DB.users().find(x => x.id === s.id);
-      if (!document.getElementById("custName").value) document.getElementById("custName").value = u ? u.name : s.name;
-      if (!document.getElementById("custPhone").value) document.getElementById("custPhone").value = u ? u.mobile : s.mobile;
-      if (u && u.address && !document.getElementById("custAddr").value) document.getElementById("custAddr").value = u.address;
+      db.collection("users").doc(currentUser.uid).get().then(doc => {
+        if (!doc.exists) return;
+        const d = doc.data();
+        if (!document.getElementById("custName").value) document.getElementById("custName").value = d.name || "";
+        if (!document.getElementById("custPhone").value) document.getElementById("custPhone").value = d.phone || "";
+        if (d.address && !document.getElementById("custAddr").value) document.getElementById("custAddr").value = d.address;
+      });
     }
 
     function directBuy(id) {
       cart = [{ ...catalog.find(p => p.id === id), qty: 1 }];
-      DB.saveCart();
+      localStorage.setItem("tb_cart", JSON.stringify(cart));
       renderCart();
       startCheckout();
     }
@@ -1092,25 +887,22 @@
       document.getElementById("stepAddress").style.display = step === 1 ? "block" : "none";
       document.getElementById("stepSummary").style.display = step === 2 ? "block" : "none";
       document.getElementById("stepPayment").style.display = step === 3 ? "block" : "none";
-
       ["stNode1", "stNode2", "stNode3"].forEach((n, i) => {
         const node = document.getElementById(n);
         const st = i + 1;
         node.className = "step-node " + (st < step ? "done" : st === step ? "active" : "");
       });
-
       if (step === 2) {
         const name = document.getElementById("custName").value.trim();
         const phone = document.getElementById("custPhone").value.trim();
         const pin = document.getElementById("custPin").value.trim();
         const city = document.getElementById("custCity").value.trim();
         const addr = document.getElementById("custAddr").value.trim();
-        if (!name || !phone || !pin || !city || !addr) { showToast("कृपया नाम, मोबाइल, पिनकोड, शहर व पूरा पता भरें!", "error"); goToStep(1); return; }
+        if (!name || !phone || !pin || !city || !addr) { showToast("सभी एड्रेस फील्ड भरें!", "error"); goToStep(1); return; }
         if (!/^[6-9]\d{9}$/.test(phone)) { showToast("सही मोबाइल नंबर डालें", "error"); goToStep(1); return; }
         if (!/^\d{6}$/.test(pin)) { showToast("सही 6 अंकों का पिनकोड डालें", "error"); goToStep(1); return; }
         calculateFinalBill();
       }
-      if (step === 3) renderPaymentPanel();
     }
 
     function calculateFinalBill() {
@@ -1121,8 +913,7 @@
       });
       document.getElementById("summaryItemsReview").innerHTML = reviewHtml;
       const gst = Math.round(baseTotal * 0.18);
-      const packaging = 29;
-      const finalGrand = Math.max(0, (baseTotal + gst + packaging) - discountAmount);
+      const finalGrand = Math.max(0, (baseTotal + gst + 29) - discountAmount);
       currentFinalAmount = finalGrand;
       document.getElementById("billMrp").innerText = "₹" + baseTotal.toLocaleString('en-IN');
       document.getElementById("billGst").innerText = "₹" + gst.toLocaleString('en-IN');
@@ -1136,123 +927,97 @@
         discountAmount = Math.round(baseTotal * 0.10);
         document.getElementById("discountRow").style.display = "flex";
         document.getElementById("billDiscount").innerText = "-₹" + discountAmount.toLocaleString('en-IN');
-        calculateFinalBill();
-        showToast("🎉 TOKRI10 लागू! 10% की छूट मिल गई।", "success");
+        calculateFinalBill(); showToast("🎉 10% छूट लागू!", "success");
       } else if (code === "FLAT50") {
         discountAmount = 50;
         document.getElementById("discountRow").style.display = "flex";
         document.getElementById("billDiscount").innerText = "-₹50";
-        calculateFinalBill();
-        showToast("🎉 FLAT50 लागू! ₹50 की छूट मिल गई।", "success");
-      } else {
-        showToast("अमान्य कूपन कोड!", "error");
-      }
+        calculateFinalBill(); showToast("🎉 ₹50 छूट लागू!", "success");
+      } else showToast("अमान्य कूपन कोड!", "error");
     }
 
-    // ---------- Payment ----------
     function onPayChange(radio) {
       document.querySelectorAll(".pay-option").forEach(o => o.classList.remove("selected"));
       radio.closest(".pay-option").classList.add("selected");
-      const v = radio.value;
-      document.getElementById("payUpi").style.display = v === "UPI" ? "block" : "none";
-      document.getElementById("payCard").style.display = v === "Card" ? "block" : "none";
-      document.getElementById("payCod").style.display = v === "COD" ? "block" : "none";
-      if (v === "UPI") renderUpiQr();
     }
 
-    function renderPaymentPanel() {
-      document.getElementById("upiAmountText").innerText = "₹" + currentFinalAmount.toLocaleString('en-IN');
-      document.getElementById("cardPayAmount").innerText = "₹" + currentFinalAmount.toLocaleString('en-IN');
-      const checked = document.querySelector('input[name="payMethod"]:checked');
-      if (checked) onPayChange(checked);
+    // ==================== PAYMENT (Razorpay) ====================
+    function placeOrder() {
+      const mode = document.querySelector('input[name="payMethod"]:checked').value;
+      if (mode === "COD") finalizeOrder("COD", "");
+      else payOnline();
     }
 
-    function renderUpiQr() {
-      const img = document.getElementById("upiQrImg");
-      const fb = document.getElementById("upiQrFallback");
-      document.getElementById("upiIdText").innerText = MERCHANT_UPI;
-      document.getElementById("upiAmountText").innerText = "₹" + currentFinalAmount.toLocaleString('en-IN');
-      const uri = `upi://pay?pa=${MERCHANT_UPI}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${currentFinalAmount}&cu=INR&tn=${encodeURIComponent("TokriBazaar Order")}`;
-      if (typeof qrcode === "function") {
-        try {
-          const qr = qrcode(0, "M");
-          qr.addData(uri);
-          qr.make();
-          img.src = qr.createDataURL(6, 4);
-          img.style.display = "inline-block";
-          fb.style.display = "none";
-        } catch (e) { img.style.display = "none"; fb.style.display = "block"; }
-      } else {
-        img.style.display = "none";
-        fb.style.display = "block";
-      }
-    }
-
-    function copyUpiId() {
-      navigator.clipboard && navigator.clipboard.writeText(MERCHANT_UPI);
-      showToast("UPI ID कॉपी हो गई: " + MERCHANT_UPI, "success");
-    }
-
-    function confirmUpiPayment() {
+    function payOnline() {
       if (!currentFinalAmount) return;
-      processPayment("UPI", "भुगतान वेरिफाई हो रहा है...", () => finalizeOrder("UPI"));
-    }
-
-    function confirmCardPayment() {
-      const num = document.getElementById("cardNum").value.replace(/\s/g, "");
-      const name = document.getElementById("cardName").value.trim();
-      const exp = document.getElementById("cardExp").value.trim();
-      const cvv = document.getElementById("cardCvv").value.trim();
-      const err = document.getElementById("cardErr");
-
-      if (!/^\d{16}$/.test(num)) { err.innerText = "16 अंकों का सही कार्ड नंबर डालें।"; err.style.color = "var(--danger)"; return; }
-      if (!luhnCheck(num)) { err.innerText = "कार्ड नंबर अमान्य है।"; err.style.color = "var(--danger)"; return; }
-      if (name.length < 3) { err.innerText = "कार्ड पर लिखा नाम डालें।"; err.style.color = "var(--danger)"; return; }
-      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(exp)) { err.innerText = "एक्सपायरी MM/YY फॉर्मेट में डालें।"; err.style.color = "var(--danger)"; return; }
-      const [mm, yy] = exp.split("/");
-      const expDate = new Date(2000 + +yy, +mm, 0);
-      if (expDate < new Date()) { err.innerText = "कार्ड एक्सपायर हो चुका है।"; err.style.color = "var(--danger)"; return; }
-      if (!/^\d{3,4}$/.test(cvv)) { err.innerText = "सही CVV डालें।"; err.style.color = "var(--danger)"; return; }
-
-      err.innerText = "";
-      processPayment("Card", "कार्ड से भुगतान हो रहा है...", () => finalizeOrder("Card"));
-    }
-
-    function luhnCheck(num) {
-      let sum = 0, alt = false;
-      for (let i = num.length - 1; i >= 0; i--) {
-        let d = +num[i];
-        if (alt) { d *= 2; if (d > 9) d -= 9; }
-        sum += d; alt = !alt;
-      }
-      return sum % 10 === 0;
-    }
-
-    function formatCardNumber(el) {
-      let v = el.value.replace(/\D/g, "").slice(0, 16);
-      el.value = v.replace(/(\d{4})(?=\d)/g, "$1 ");
-    }
-
-    function formatExpiry(el) {
-      let v = el.value.replace(/\D/g, "").slice(0, 4);
-      if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
-      el.value = v;
-    }
-
-    function confirmCodOrder() {
-      processPayment("COD", "ऑर्डर कन्फर्म हो रहा है...", () => finalizeOrder("COD"));
-    }
-
-    function processPayment(title, sub, done) {
       const ov = document.getElementById("processingOverlay");
-      document.getElementById("processingTitle").innerText = title;
-      document.getElementById("processingSub").innerText = sub;
+      document.getElementById("processingTitle").innerText = "Payment Gateway खुल रहा है...";
+      document.getElementById("processingSub").innerText = "Razorpay से कनेक्ट हो रहा है";
       ov.classList.add("open");
-      setTimeout(() => { ov.classList.remove("open"); done(); }, 1900);
+
+      // 1. Backend se order_id lo (secret key server par hi rehti hai)
+      fetch(BACKEND_URL + "/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: currentFinalAmount, currency: "INR" })
+      })
+      .then(r => r.json())
+      .then(data => {
+        ov.classList.remove("open");
+        if (data.error) throw new Error(data.error);
+
+        const options = {
+          key: RAZORPAY_KEY_ID,
+          amount: data.amount,
+          currency: data.currency,
+          name: "TokriBazaar",
+          description: "Order Payment",
+          order_id: data.orderId,
+          handler: function (response) {
+            // 2. Payment success → backend se verify karo
+            verifyPayment(response.razorpay_order_id, response.razorpay_payment_id, response.razorpay_signature);
+          },
+          prefill: {
+            name: document.getElementById("custName").value,
+            contact: document.getElementById("custPhone").value,
+            email: currentUser.email || ""
+          },
+          notes: { userId: currentUser.uid },
+          theme: { color: "#2874f0" },
+          modal: { ondismiss: function () { showToast("Payment cancel ho gaya", "error"); } }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+      })
+      .catch(err => {
+        ov.classList.remove("open");
+        showToast("Payment error: " + err.message, "error");
+      });
     }
 
-    // ---------- Finalize order ----------
-    function finalizeOrder(paymentMode) {
+    function verifyPayment(orderId, paymentId, signature) {
+      const ov = document.getElementById("processingOverlay");
+      document.getElementById("processingTitle").innerText = "Payment verify हो रहा है...";
+      document.getElementById("processingSub").innerText = "कृपया प्रतीक्षा करें";
+      ov.classList.add("open");
+
+      fetch(BACKEND_URL + "/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, paymentId, signature })
+      })
+      .then(r => r.json())
+      .then(v => {
+        ov.classList.remove("open");
+        if (v.success) finalizeOrder("Online (Razorpay)", paymentId);
+        else showToast("Payment verify नहीं हुआ!", "error");
+      })
+      .catch(() => { ov.classList.remove("open"); showToast("Verification error", "error"); });
+    }
+
+    // ==================== FINALIZE ORDER ====================
+    function finalizeOrder(paymentMode, paymentId) {
       const name = document.getElementById("custName").value.trim();
       const phone = document.getElementById("custPhone").value.trim();
       const pin = document.getElementById("custPin").value.trim();
@@ -1260,91 +1025,53 @@
       const addr = document.getElementById("custAddr").value.trim();
       const orderId = "TB-" + Math.floor(100000 + Math.random() * 900000);
       const totalAmount = document.getElementById("billFinal").innerText;
-      const session = DB.session();
 
       const order = {
-        orderId, userId: session ? session.id : "guest",
+        orderId,
+        userId: currentUser.uid,
         items: cart.map(i => ({ id: i.id, name: i.name, img: i.img, price: i.price, qty: i.qty })),
         address: { name, phone, pin, city, addr },
-        paymentMode, total: totalAmount, status: "Confirmed",
-        date: new Date().toISOString()
+        paymentMode, paymentId, total: totalAmount, status: "Confirmed",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
       };
-      const orders = DB.orders();
-      orders.push(order);
-      DB.saveOrders(orders);
 
-      // Save address in profile for next time
-      if (session) {
-        const users = DB.users();
-        const u = users.find(x => x.id === session.id);
-        if (u) { u.address = addr + ", " + city + " - " + pin; DB.saveUsers(users); }
-      }
+      // Save order to Firestore + address to profile
+      db.collection("orders").add(order).catch(e => console.error("order save error", e));
+      db.collection("users").doc(currentUser.uid).update({ address: addr + ", " + city + " - " + pin }).catch(() => {});
 
-      // Show success
+      // Success screen
       document.getElementById("stepAddress").style.display = "none";
       document.getElementById("stepSummary").style.display = "none";
       document.getElementById("stepPayment").style.display = "none";
       document.querySelector(".steps-indicator").style.display = "none";
       document.getElementById("stepSuccess").style.display = "block";
 
-      const payLabel = { UPI: "UPI (GPay/PhonePe/Paytm)", Card: "Credit/Debit Card", COD: "Cash On Delivery" }[paymentMode];
       document.getElementById("invoiceDetails").innerHTML = `
         <div style="border-bottom:1px solid #ddd; padding-bottom:8px; margin-bottom:8px;">
           <strong>Order ID:</strong> ${orderId} <br>
           <strong>तारीख:</strong> ${new Date().toLocaleDateString('hi-IN')} <br>
-          <strong>पेमेंट माध्यम:</strong> ${payLabel}
+          <strong>पेमेंट माध्यम:</strong> ${paymentMode}${paymentId ? '<br><strong>Payment ID:</strong> ' + paymentId : ''}
         </div>
-        <strong>डिलीवरी पता:</strong><br>
-        ${name}, Mob: ${phone}<br>
-        ${addr}, ${city} - Pincode: ${pin}<br><br>
-        <strong>भुगतान राशि (सहित 18% GST):</strong> <span style="font-size:16px; color:#2e7d32; font-weight:bold;">${totalAmount}</span>
-      `;
+        <strong>डिलीवरी पता:</strong><br>${name}, Mob: ${phone}<br>${addr}, ${city} - Pincode: ${pin}<br><br>
+        <strong>भुगतान राशि (सहित 18% GST):</strong> <span style="font-size:16px; color:#2e7d32; font-weight:bold;">${totalAmount}</span>`;
 
       cart = [];
       discountAmount = 0;
-      DB.saveCart();
+      localStorage.setItem("tb_cart", JSON.stringify(cart));
       renderCart();
     }
 
-    // ---------- Data export ----------
-    function exportData() {
-      const data = {
-        exportedAt: new Date().toISOString(),
-        users: DB.users(),
-        loginLog: DB.loginLog(),
-        orders: DB.orders()
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "tokribazaar-user-data.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast("📥 User data (JSON) डाउनलोड हो गया", "success");
-    }
-
-    function openAboutStorage() {
-      showToast("ℹ️ डेटा इस ब्राउज़र के localStorage में save होता है। असली सर्वर स्टोरेज के लिए README देखें।", "info");
-    }
-
-    // ---------- OTP input auto-advance ----------
+    // ---------- OTP auto-advance ----------
     document.querySelectorAll(".otp-box").forEach((inp, i, arr) => {
-      inp.addEventListener("input", () => {
-        const v = inp.value.replace(/\D/g, "");
-        inp.value = v.slice(-1);
-        if (v && i < arr.length - 1) arr[i + 1].focus();
-      });
-      inp.addEventListener("keydown", (e) => {
-        if (e.key === "Backspace" && !inp.value && i > 0) arr[i - 1].focus();
-      });
+      inp.addEventListener("input", () => { const v = inp.value.replace(/\D/g, ""); inp.value = v.slice(-1); if (v && i < arr.length - 1) arr[i + 1].focus(); });
+      inp.addEventListener("keydown", (e) => { if (e.key === "Backspace" && !inp.value && i > 0) arr[i - 1].focus(); });
     });
 
     // ---------- Startup ----------
     window.onload = function () {
       displayProducts(catalog);
-      updateUserHeader();
       renderCart();
     };
   </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a35615196bbb564c',t:'MTc4ODQ1MjQzMg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
